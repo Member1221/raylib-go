@@ -449,6 +449,7 @@ type Asset interface {
 	io.Closer
 }
 
+// WindowSizeInfo contains useful information about the size and position of the window.
 type WindowSizeInfo struct {
 	Position   Vector2
 	WindowSize Vector2
@@ -459,6 +460,7 @@ func (b *WindowSizeInfo) cptr() *C.WindowSizeInfo {
 	return (*C.WindowSizeInfo)(unsafe.Pointer(b))
 }
 
+// WindowInfo contains useful information about the game window.
 type WindowInfo struct {
 	Title        string
 	IsMinimized  bool
@@ -466,6 +468,12 @@ type WindowInfo struct {
 	IsResizable  bool
 	Size         WindowSizeInfo
 }
+
+// NewWindowInfoFromPointer - Returns new WindowInfo from pointer
+func NewWindowInfoFromPointer(ptr unsafe.Pointer) WindowInfo {
+	return *(*WindowInfo)(ptr)
+}
+
 
 func (b *WindowInfo) cptr() *C.rlWindowInfo {
 	return (*C.rlWindowInfo)(unsafe.Pointer(b))
@@ -502,12 +510,17 @@ func ToggleFullscreen() {
 
 // SetWindowResizable - Sets the resizability state.
 func SetWindowResizable(state bool) {
-	C.SetWindowResizable(state)
+	if state == false {
+		C.SetWindowResizable(C.bool(0))
+		return
+	}
+	C.SetWindowResizable(C.bool(1))
 }
 
 // GetGameWindowInfo - Gets the info about the window.
 func GetGameWindowInfo() WindowInfo {
-	return C.GetGameWindowInfo()
+	p := C.GetGameWindowInfo()
+	return NewWindowInfoFromPointer(unsafe.Pointer(&p))
 }
 
 // SetWindowIcon - Set icon for window (only PLATFORM_DESKTOP)

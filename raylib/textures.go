@@ -478,17 +478,6 @@ func ImageColorBrightness(image *Image, brightness int32) {
 	C.ImageColorBrightness(cimage, cbrightness)
 }
 
-// GenImageColor - Generate image: plain color
-func GenImageColor(width, height int, color Color) *Image {
-	cwidth := (C.int)(width)
-	cheight := (C.int)(height)
-	ccolor := color.cptr()
-
-	ret := C.GenImageColor(cwidth, cheight, *ccolor)
-	v := NewImageFromPointer(unsafe.Pointer(&ret))
-	return v
-}
-
 // GenImageGradientV - Generate image: vertical gradient
 func GenImageGradientV(width, height int, top, bottom Color) *Image {
 	cwidth := (C.int)(width)

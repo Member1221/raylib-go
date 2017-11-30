@@ -712,7 +712,7 @@ void SetWindowMinSize(int width, int height)
 rlWindowInfo GetGameWindowInfo(void)
 {
     int x, y;
-    glfwGetWindowPos(window, x, y);
+    glfwGetWindowPos(window, &x, &y);
     WindowSizeInfo si = {
         {
             x, y

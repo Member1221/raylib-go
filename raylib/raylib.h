@@ -703,7 +703,7 @@ typedef struct WindowSizeInfo {
 } WindowSizeInfo;
 
 typedef struct rlWindowInfo {
-    char* title;
+    const char* title;
     bool isMinimized;
     bool isFullscreen;
     bool isResizable;
@@ -963,7 +963,7 @@ RLAPI void ImageColorGrayscale(Image *image);                                   
 RLAPI void ImageColorContrast(Image *image, float contrast);                                             // Modify image color: contrast (-100 to 100)
 RLAPI void ImageColorBrightness(Image *image, int brightness);                                           // Modify image color: brightness (-255 to 255)
 
-// Image generation functions
+// Image generation functions                                         // Generate image: plain color
 RLAPI Image GenImageGradientV(int width, int height, Color top, Color bottom);                           // Generate image: vertical gradient
 RLAPI Image GenImageGradientH(int width, int height, Color left, Color right);                           // Generate image: horizontal gradient
 RLAPI Image GenImageGradientRadial(int width, int height, float density, Color inner, Color outer);      // Generate image: radial gradient
