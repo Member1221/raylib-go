@@ -3,18 +3,17 @@
 *   raylib.core - Basic functions to manage windows, OpenGL context and input on multiple platforms
 *
 *   PLATFORMS SUPPORTED: 
-*       - Windows (Win32, Win64)
+*       - Windows (win32/Win64)
 *       - Linux (tested on Ubuntu)
-*       - FreeBSD
-*       - OSX/macOS
-*       - Android (ARM, ARM64) 
+*       - OSX (Mac)
+*       - Android (ARM or ARM64) 
 *       - Raspberry Pi (Raspbian)
 *       - HTML5 (Chrome, Firefox)
 *
 *   CONFIGURATION:
 *
 *   #define PLATFORM_DESKTOP
-*       Windowing and input system configured for desktop platforms: Windows, Linux, OSX, FreeBSD (managed by GLFW3 library)
+*       Windowing and input system configured for desktop platforms: Windows, Linux, OSX (managed by GLFW3 library)
 *       NOTE: Oculus Rift CV1 requires PLATFORM_DESKTOP for mirror rendering - View [rlgl] module to enable it
 *
 *   #define PLATFORM_ANDROID
@@ -82,7 +81,7 @@
 #define SUPPORT_MOUSE_GESTURES
 #define SUPPORT_CAMERA_SYSTEM
 #define SUPPORT_GESTURES_SYSTEM
-//#define SUPPORT_BUSY_WAIT_LOOP
+#define SUPPORT_BUSY_WAIT_LOOP
 #define SUPPORT_GIF_RECORDING
 //-------------------------------------------------
 
@@ -111,7 +110,7 @@
 #endif
 
 #if defined(__linux__) || defined(PLATFORM_WEB)
-    /*#define _POSIX_C_SOURCE 199309L // Required for CLOCK_MONOTONIC if compiled with c99 without gnu ext.*/
+    #define _POSIX_C_SOURCE 199309L // Required for CLOCK_MONOTONIC if compiled with c99 without gnu ext.
 #endif
 
 #include <stdio.h>          // Standard input / output lib
@@ -277,13 +276,13 @@ static int renderWidth, renderHeight;       // Framebuffer width and height (ren
 static int renderOffsetX = 0;               // Offset X from render area (must be divided by 2)
 static int renderOffsetY = 0;               // Offset Y from render area (must be divided by 2)
 static bool fullscreen = false;             // Fullscreen mode (useful only for PLATFORM_DESKTOP)
+static bool resizable = false;
 static Matrix downscaleView;                // Matrix to downscale view (in case screen size bigger than display size)
 
-static bool cursorHidden = false;           // Track if cursor is hidden
-
 #if defined(PLATFORM_DESKTOP) || defined(PLATFORM_RPI) || defined(PLATFORM_WEB)
-static const char *windowTitle = NULL;      // Window text title...
+static const char *windowTitle;             // Window text title...
 static bool cursorOnScreen = false;         // Tracks if cursor is inside client area
+static bool cursorHidden = false;           // Track if cursor is hidden
 static int screenshotCounter = 0;           // Screenshots counter
 
 // Register mouse states
@@ -410,13 +409,12 @@ static void *GamepadThread(void *arg);                  // Mouse reading thread
 //----------------------------------------------------------------------------------
 #if defined(PLATFORM_DESKTOP) || defined(PLATFORM_RPI) || defined(PLATFORM_WEB)
 // Initialize window and OpenGL context
-// NOTE: data parameter could be used to pass any kind of required data to the initialization
-void InitWindow(int width, int height, void *data)
+void InitWindow(int width, int height, const char *title)
 {
     TraceLog(LOG_INFO, "Initializing raylib (v1.8.0)");
 
-    // Input data is window title char data
-    windowTitle = (char *)data;
+    // Store window title (could be useful...)
+    windowTitle = title;
 
     // Init graphics device (display device and OpenGL context)
     InitGraphicsDevice(width, height);
@@ -473,17 +471,15 @@ void InitWindow(int width, int height, void *data)
 #endif
 
 #if defined(PLATFORM_ANDROID)
-// Initialize window and OpenGL context (and Android activity)
-// NOTE: data parameter could be used to pass any kind of required data to the initialization
-void InitWindow(int width, int height, void *data)
+// Initialize Android activity
+void InitWindow(int width, int height, void *state)
 {
     TraceLog(LOG_INFO, "Initializing raylib (v1.8.0)");
 
     screenWidth = width;
     screenHeight = height;
 
-    // Input data is android app pointer
-    app = (struct android_app *)data;
+    app = (struct android_app *)state;
     internalDataPath = app->activity->internalDataPath;
 
     // Set desired windows flags before initializing anything
@@ -512,6 +508,7 @@ void InitWindow(int width, int height, void *data)
     //AConfiguration_getScreenSize(app->config);
     //AConfiguration_getScreenLong(app->config);
 
+    //state->userData = &engine;
     app->onAppCmd = AndroidCommandCallback;
     app->onInputEvent = AndroidInputCallback;
 
@@ -599,6 +596,13 @@ void CloseWindow(void)
     TraceLog(LOG_INFO, "Window closed successfully");
 }
 
+void UpdateWindow(void)
+{
+    CloseWindow();
+    TraceLog(LOG_INFO, "Relaunching window...");
+    InitWindow(screenWidth, screenHeight, windowTitle);
+}
+
 // Check if KEY_ESCAPE pressed or Close icon pressed
 bool WindowShouldClose(void)
 {
@@ -622,6 +626,11 @@ bool IsWindowMinimized(void)
 #else
     return false;
 #endif
+}
+
+bool IsWindowResizable(void)
+{
+    return resizable;
 }
 
 // Toggle fullscreen mode (only PLATFORM_DESKTOP)
@@ -700,23 +709,64 @@ void SetWindowMinSize(int width, int height)
 #endif
 }
 
+rlWindowInfo GetGameWindowInfo(void)
+{
+    int x, y;
+    glfwGetWindowPos(window, x, y);
+    WindowSizeInfo si = {
+        {
+            x, y
+        },
+        {
+            renderWidth, renderHeight
+        },
+        {
+            screenWidth, screenHeight
+        }
+    };
+    rlWindowInfo output = { windowTitle, windowMinimized, fullscreen, resizable, si };
+    return output;
+}
+
+// Set window resizable. (run before window creation)
+void SetWindowResizable(bool state)
+{
+    #if defined(PLATFORM_DESKTOP)
+    resizable = true;
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    #endif
+}
+
+// Get current window width
+int GetSurfaceWidth(void)
+{
+    return screenWidth;
+}
+
+// Get current window height
+int GetSurfaceHeight(void)
+{
+    return screenHeight;
+}
+
 // Get current screen width
 int GetScreenWidth(void)
 {
-    return screenWidth;
+    return displayWidth;
 }
 
 // Get current screen height
 int GetScreenHeight(void)
 {
-    return screenHeight;
+    return displayHeight;
 }
 
+#if !defined(PLATFORM_ANDROID)
 // Show mouse cursor
 void ShowCursor()
 {
 #if defined(PLATFORM_DESKTOP)
-    #if defined(__linux__) && defined(_GLFW_X11)
+    #if defined(__linux__)
         XUndefineCursor(glfwGetX11Display(), glfwGetX11Window(window));
     #else
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -729,7 +779,7 @@ void ShowCursor()
 void HideCursor()
 {
 #if defined(PLATFORM_DESKTOP)
-    #if defined(__linux__) && defined(_GLFW_X11)
+    #if defined(__linux__)
         XColor col;
         const char nil[] = {0};
 
@@ -774,6 +824,7 @@ void DisableCursor()
 #endif
     cursorHidden = true;
 }
+#endif  // !defined(PLATFORM_ANDROID)
 
 // Set background color (framebuffer clear color)
 void ClearBackground(Color color)
@@ -961,7 +1012,7 @@ void EndTextureMode(void)
 
     // Set orthographic projection to current framebuffer size
     // NOTE: Configured top-left corner as (0, 0)
-    rlOrtho(0, GetScreenWidth(), GetScreenHeight(), 0, 0.0f, 1.0f);
+    rlOrtho(0, GetSurfaceWidth(), GetSurfaceHeight(), 0, 0.0f, 1.0f);
 
     rlMatrixMode(RL_MODELVIEW);         // Switch back to MODELVIEW matrix
     rlLoadIdentity();                   // Reset current matrix (MODELVIEW)
@@ -974,8 +1025,8 @@ Ray GetMouseRay(Vector2 mousePosition, Camera camera)
 
     // Calculate normalized device coordinates
     // NOTE: y value is negative
-    float x = (2.0f*mousePosition.x)/(float)GetScreenWidth() - 1.0f;
-    float y = 1.0f - (2.0f*mousePosition.y)/(float)GetScreenHeight();
+    float x = (2.0f*mousePosition.x)/(float)GetSurfaceWidth() - 1.0f;
+    float y = 1.0f - (2.0f*mousePosition.y)/(float)GetSurfaceHeight();
     float z = 1.0f;
 
     // Store values in a vector
@@ -984,7 +1035,7 @@ Ray GetMouseRay(Vector2 mousePosition, Camera camera)
     TraceLog(LOG_DEBUG, "Device coordinates: (%f, %f, %f)", deviceCoords.x, deviceCoords.y, deviceCoords.z);
 
     // Calculate projection matrix from perspective
-    Matrix matProj = MatrixPerspective(camera.fovy*DEG2RAD, ((double)GetScreenWidth()/(double)GetScreenHeight()), 0.01, 1000.0);
+    Matrix matProj = MatrixPerspective(camera.fovy*DEG2RAD, ((double)GetSurfaceWidth()/(double)GetSurfaceHeight()), 0.01, 1000.0);
 
     // Calculate view matrix from camera look at
     Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
@@ -1008,7 +1059,7 @@ Ray GetMouseRay(Vector2 mousePosition, Camera camera)
 Vector2 GetWorldToScreen(Vector3 position, Camera camera)
 {
     // Calculate projection matrix (from perspective instead of frustum
-    Matrix matProj = MatrixPerspective(camera.fovy*DEG2RAD, (double)GetScreenWidth()/(double)GetScreenHeight(), 0.01, 1000.0);
+    Matrix matProj = MatrixPerspective(camera.fovy*DEG2RAD, (double)GetSurfaceWidth()/(double)GetSurfaceHeight(), 0.01, 1000.0);
 
     // Calculate view matrix from camera look at (and transpose it)
     Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
@@ -1026,7 +1077,7 @@ Vector2 GetWorldToScreen(Vector3 position, Camera camera)
     Vector3 ndcPos = { worldPos.x/worldPos.w, -worldPos.y/worldPos.w, worldPos.z/worldPos.w };
 
     // Calculate 2d screen position vector
-    Vector2 screenPosition = { (ndcPos.x + 1.0f)/2.0f*(float)GetScreenWidth(), (ndcPos.y + 1.0f)/2.0f*(float)GetScreenHeight() };
+    Vector2 screenPosition = { (ndcPos.x + 1.0f)/2.0f*(float)GetSurfaceWidth(), (ndcPos.y + 1.0f)/2.0f*(float)GetSurfaceHeight() };
 
     return screenPosition;
 }
@@ -1110,7 +1161,9 @@ Color Fade(Color color, float alpha)
     if (alpha < 0.0f) alpha = 0.0f;
     else if (alpha > 1.0f) alpha = 1.0f;
 
-    return (Color){color.r, color.g, color.b, (unsigned char)(255.0f*alpha)};
+    float colorAlpha = (float)color.a*alpha;
+
+    return (Color){color.r, color.g, color.b, (unsigned char)colorAlpha};
 }
 
 // Activate raylib logo at startup (can be done with flags)
@@ -1683,7 +1736,7 @@ static void InitGraphicsDevice(int width, int height)
     glfwDefaultWindowHints();                       // Set default windows hints
 
     // Check some Window creation flags
-    if (configFlags & FLAG_WINDOW_RESIZABLE) glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);   // Resizable window
+    if (configFlags & FLAG_WINDOW_RESIZABLE) SetWindowResizable(true);
     else glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);  // Avoid window being resizable
 
     if (configFlags & FLAG_WINDOW_DECORATED) glfwWindowHint(GLFW_DECORATED, GL_TRUE);   // Border and buttons on Window
@@ -2459,8 +2512,8 @@ static void MouseButtonCallback(GLFWwindow *window, int button, int action, int 
     gestureEvent.position[0] = GetMousePosition();
 
     // Normalize gestureEvent.position[0] for screenWidth and screenHeight
-    gestureEvent.position[0].x /= (float)GetScreenWidth();
-    gestureEvent.position[0].y /= (float)GetScreenHeight();
+    gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+    gestureEvent.position[0].y /= (float)GetSurfaceHeight();
 
     // Gesture data is sent to gestures system for processing
     ProcessGestureEvent(gestureEvent);
@@ -2488,8 +2541,8 @@ static void MouseCursorPosCallback(GLFWwindow *window, double x, double y)
     touchPosition[0] = gestureEvent.position[0];
 
     // Normalize gestureEvent.position[0] for screenWidth and screenHeight
-    gestureEvent.position[0].x /= (float)GetScreenWidth();
-    gestureEvent.position[0].y /= (float)GetScreenHeight();
+    gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+    gestureEvent.position[0].y /= (float)GetSurfaceHeight();
 
     // Gesture data is sent to gestures system for processing
     ProcessGestureEvent(gestureEvent);
@@ -2525,8 +2578,6 @@ static void WindowSizeCallback(GLFWwindow *window, int width, int height)
     rlClearScreenBuffers();                     // Clear screen buffers (color and depth)
 
     // Window size must be updated to be used on 3D mode to get new aspect ratio (Begin3dMode())
-    // NOTE: Be careful! GLFW3 will choose the closest fullscreen resolution supported by current monitor,
-    // for example, if reescaling back to 800x450 (desired), it could set 720x480 (closest fullscreen supported)
     screenWidth = width;
     screenHeight = height;
     renderWidth = width;
@@ -2768,26 +2819,18 @@ static int32_t AndroidInputCallback(struct android_app *app, AInputEvent *event)
     gestureEvent.position[1] = (Vector2){ AMotionEvent_getX(event, 1), AMotionEvent_getY(event, 1) };
 
     // Normalize gestureEvent.position[x] for screenWidth and screenHeight
-    gestureEvent.position[0].x /= (float)GetScreenWidth();
-    gestureEvent.position[0].y /= (float)GetScreenHeight();
+    gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+    gestureEvent.position[0].y /= (float)GetSurfaceHeight();
 
-    gestureEvent.position[1].x /= (float)GetScreenWidth();
-    gestureEvent.position[1].y /= (float)GetScreenHeight();
+    gestureEvent.position[1].x /= (float)GetSurfaceWidth();
+    gestureEvent.position[1].y /= (float)GetSurfaceHeight();
 
     // Gesture data is sent to gestures system for processing
     ProcessGestureEvent(gestureEvent);
 #else
     
-    // Support only simple touch position
-    if (flags == AMOTION_EVENT_ACTION_DOWN)
-    {
-        // Get first touch position
-        touchPosition[0].x = AMotionEvent_getX(event, 0);
-        touchPosition[0].y = AMotionEvent_getY(event, 0);
-        
-        touchPosition[0].x /= (float)GetScreenWidth();
-        touchPosition[0].y /= (float)GetScreenHeight();
-    }
+    // TODO: Support only simple touch position
+    
 #endif
 
     return 0;
@@ -2907,11 +2950,11 @@ static EM_BOOL EmscriptenTouchCallback(int eventType, const EmscriptenTouchEvent
     touchPosition[1] = gestureEvent.position[1];
 
     // Normalize gestureEvent.position[x] for screenWidth and screenHeight
-    gestureEvent.position[0].x /= (float)GetScreenWidth();
-    gestureEvent.position[0].y /= (float)GetScreenHeight();
+    gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+    gestureEvent.position[0].y /= (float)GetSurfaceHeight();
 
-    gestureEvent.position[1].x /= (float)GetScreenWidth();
-    gestureEvent.position[1].y /= (float)GetScreenHeight();
+    gestureEvent.position[1].x /= (float)GetSurfaceWidth();
+    gestureEvent.position[1].y /= (float)GetSurfaceHeight();
 
     // Gesture data is sent to gestures system for processing
     ProcessGestureEvent(gestureEvent);
@@ -3221,10 +3264,10 @@ static void *TouchThread(void *arg)
                 gestureEvent.pointerId[1] = 1;
                 gestureEvent.position[0] = (Vector2){ mousePosition.x, mousePosition.y };
                 gestureEvent.position[1] = (Vector2){ mousePosition.x, mousePosition.y };
-                gestureEvent.position[0].x /= (float)GetScreenWidth();
-                gestureEvent.position[0].y /= (float)GetScreenHeight();
-                gestureEvent.position[1].x /= (float)GetScreenWidth();
-                gestureEvent.position[1].y /= (float)GetScreenHeight();
+                gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[0].y /= (float)GetSurfaceHeight();
+                gestureEvent.position[1].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[1].y /= (float)GetSurfaceHeight();
                 ProcessGestureEvent(gestureEvent);
             }
             if (ev.type == EV_ABS && ev.code == 24 && ev.value > 0 && currentMouseState[0] == 0)
@@ -3236,10 +3279,10 @@ static void *TouchThread(void *arg)
                 gestureEvent.pointerId[1] = 1;
                 gestureEvent.position[0] = (Vector2){ mousePosition.x, mousePosition.y };
                 gestureEvent.position[1] = (Vector2){ mousePosition.x, mousePosition.y };
-                gestureEvent.position[0].x /= (float)GetScreenWidth();
-                gestureEvent.position[0].y /= (float)GetScreenHeight();
-                gestureEvent.position[1].x /= (float)GetScreenWidth();
-                gestureEvent.position[1].y /= (float)GetScreenHeight();
+                gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[0].y /= (float)GetSurfaceHeight();
+                gestureEvent.position[1].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[1].y /= (float)GetSurfaceHeight();
                 ProcessGestureEvent(gestureEvent);
             }
             // x & y values supplied by event4 have been scaled & de-jittered using tslib calibration data
@@ -3254,10 +3297,10 @@ static void *TouchThread(void *arg)
                 gestureEvent.pointerId[1] = 1;
                 gestureEvent.position[0] = (Vector2){ mousePosition.x, mousePosition.y };
                 gestureEvent.position[1] = (Vector2){ mousePosition.x, mousePosition.y };
-                gestureEvent.position[0].x /= (float)GetScreenWidth();
-                gestureEvent.position[0].y /= (float)GetScreenHeight();
-                gestureEvent.position[1].x /= (float)GetScreenWidth();
-                gestureEvent.position[1].y /= (float)GetScreenHeight();
+                gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[0].y /= (float)GetSurfaceHeight();
+                gestureEvent.position[1].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[1].y /= (float)GetSurfaceHeight();
                 ProcessGestureEvent(gestureEvent);
             }
             if (ev.type == EV_ABS && ev.code == 1)
@@ -3271,10 +3314,10 @@ static void *TouchThread(void *arg)
                 gestureEvent.pointerId[1] = 1;
                 gestureEvent.position[0] = (Vector2){ mousePosition.x, mousePosition.y };
                 gestureEvent.position[1] = (Vector2){ mousePosition.x, mousePosition.y };
-                gestureEvent.position[0].x /= (float)GetScreenWidth();
-                gestureEvent.position[0].y /= (float)GetScreenHeight();
-                gestureEvent.position[1].x /= (float)GetScreenWidth();
-                gestureEvent.position[1].y /= (float)GetScreenHeight();
+                gestureEvent.position[0].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[0].y /= (float)GetSurfaceHeight();
+                gestureEvent.position[1].x /= (float)GetSurfaceWidth();
+                gestureEvent.position[1].y /= (float)GetSurfaceHeight();
                 ProcessGestureEvent(gestureEvent);
             }
 

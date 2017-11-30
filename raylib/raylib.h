@@ -72,6 +72,20 @@
 #ifndef RAYLIB_H
 #define RAYLIB_H
 
+// Choose your platform here or just define it at compile time: -DPLATFORM_DESKTOP
+//#define PLATFORM_DESKTOP      // Windows, Linux or OSX
+//#define PLATFORM_ANDROID      // Android device
+//#define PLATFORM_RPI          // Raspberry Pi
+//#define PLATFORM_WEB          // HTML5 (emscripten, asm.js)
+
+// Security check in case no PLATFORM_* defined
+#if !defined(PLATFORM_DESKTOP) && \
+    !defined(PLATFORM_ANDROID) && \
+    !defined(PLATFORM_RPI) && \
+    !defined(PLATFORM_WEB)
+        #define PLATFORM_DESKTOP
+#endif
+
 #if defined(_WIN32) && defined(BUILD_LIBTYPE_SHARED)
     #define RLAPI __declspec(dllexport)         // We are building raylib as a Win32 shared library (.dll)
 #elif defined(_WIN32) && defined(USE_LIBTYPE_SHARED)
@@ -165,11 +179,13 @@
 #define KEY_Y                89
 #define KEY_Z                90
 
-// Android Physical Buttons
-#define KEY_BACK              4
-#define KEY_MENU             82
-#define KEY_VOLUME_UP        24
-#define KEY_VOLUME_DOWN      25
+#if defined(PLATFORM_ANDROID)
+    // Android Physical Buttons
+    #define KEY_BACK              4
+    #define KEY_MENU             82
+    #define KEY_VOLUME_UP        24
+    #define KEY_VOLUME_DOWN      25
+#endif
 
 // Mouse Buttons
 #define MOUSE_LEFT_BUTTON     0
@@ -680,6 +696,24 @@ typedef enum {
     RRES_TYPE_DIRECTORY
 } RRESDataType;
 
+typedef struct WindowSizeInfo {
+    Vector2 position;
+    Vector2 windowSize;
+    Vector2 canvasSize;
+} WindowSizeInfo;
+
+typedef struct rlWindowInfo {
+    char* title;
+    bool isMinimized;
+    bool isFullscreen;
+    bool isResizable;
+    /*#if !defined(PLATFORM_ANDROID)
+    bool isMouseVisible;
+    bool isMouseLocked;
+    #endif*/
+    WindowSizeInfo size;
+} rlWindowInfo;
+
 #ifdef __cplusplus
 extern "C" {            // Prevents name mangling of functions
 #endif
@@ -694,25 +728,37 @@ extern "C" {            // Prevents name mangling of functions
 //------------------------------------------------------------------------------------
 
 // Window-related functions
-RLAPI void InitWindow(int width, int height, void *data);         // Initialize window and OpenGL context
+#if defined(PLATFORM_ANDROID)
+RLAPI void InitWindow(int width, int height, void *state);                          // Initialize Android activity
+#elif defined(PLATFORM_DESKTOP) || defined(PLATFORM_RPI) || defined(PLATFORM_WEB)
+RLAPI void InitWindow(int width, int height, const char *title);   // Initialize window and OpenGL context
+#endif
+RLAPI void UpdateWindow(void);                                    // Relaunches window with updates
 RLAPI void CloseWindow(void);                                     // Close window and unload OpenGL context
 RLAPI bool WindowShouldClose(void);                               // Check if KEY_ESCAPE pressed or Close icon pressed
 RLAPI bool IsWindowMinimized(void);                               // Check if window has been minimized (or lost focus)
+RLAPI bool IsWindowResizable(void);
 RLAPI void ToggleFullscreen(void);                                // Toggle fullscreen mode (only PLATFORM_DESKTOP)
 RLAPI void SetWindowIcon(Image image);                            // Set icon for window (only PLATFORM_DESKTOP)
 RLAPI void SetWindowTitle(const char *title);                     // Set title for window (only PLATFORM_DESKTOP)
 RLAPI void SetWindowPosition(int x, int y);                       // Set window position on screen (only PLATFORM_DESKTOP)
 RLAPI void SetWindowMonitor(int monitor);                         // Set monitor for the current window (fullscreen mode)
 RLAPI void SetWindowMinSize(int width, int height);               // Set window minimum dimensions (for FLAG_WINDOW_RESIZABLE)
-RLAPI int GetScreenWidth(void);                                   // Get current screen width
-RLAPI int GetScreenHeight(void);                                  // Get current screen height
+RLAPI void SetWindowResizable(bool state);                        // Set window resizable.
+RLAPI rlWindowInfo GetGameWindowInfo(void);                       // Gets info about the window.
+RLAPI int GetSurfaceWidth(void);                                   // Get current window width.
+RLAPI int GetScreenWidth(void);                                   // Get current screen width.
+RLAPI int GetSurfaceHeight(void);                                  // Get current window height.
+RLAPI int GetScreenHeight(void);                                  // Get current screen height.
 
+#if !defined(PLATFORM_ANDROID)
 // Cursor-related functions
 RLAPI void ShowCursor(void);                                      // Shows cursor
 RLAPI void HideCursor(void);                                      // Hides cursor
 RLAPI bool IsCursorHidden(void);                                  // Check if cursor is not visible
 RLAPI void EnableCursor(void);                                    // Enables cursor (unlock cursor)
 RLAPI void DisableCursor(void);                                   // Disables cursor (lock cursor)
+#endif
 
 // Drawing-related functions
 RLAPI void ClearBackground(Color color);                          // Set background color (framebuffer clear color)
@@ -742,7 +788,7 @@ RLAPI Color Fade(Color color, float alpha);                       // Color fade-
 RLAPI float *ColorToFloat(Color color);                           // Converts Color to float array and normalizes
 
 // Math useful functions (available from raymath.h)
-RLAPI float *Vector3ToFloat(Vector3 vec);                         // Returns Vector3 as float array
+RLAPI float *VectorToFloat(Vector3 vec);                          // Returns Vector3 as float array
 RLAPI float *MatrixToFloat(Matrix mat);                           // Returns Matrix as float array
 RLAPI Vector3 Vector3Zero(void);                                  // Vector with components value 0.0f
 RLAPI Vector3 Vector3One(void);                                   // Vector with components value 1.0f
@@ -918,7 +964,6 @@ RLAPI void ImageColorContrast(Image *image, float contrast);                    
 RLAPI void ImageColorBrightness(Image *image, int brightness);                                           // Modify image color: brightness (-255 to 255)
 
 // Image generation functions
-RLAPI Image GenImageColor(int width, int height, Color color);                                           // Generate image: plain color
 RLAPI Image GenImageGradientV(int width, int height, Color top, Color bottom);                           // Generate image: vertical gradient
 RLAPI Image GenImageGradientH(int width, int height, Color left, Color right);                           // Generate image: horizontal gradient
 RLAPI Image GenImageGradientRadial(int width, int height, float density, Color inner, Color outer);      // Generate image: radial gradient
@@ -1053,8 +1098,8 @@ RLAPI Texture2D GetTextureDefault(void);                                  // Get
 
 // Shader configuration functions
 RLAPI int GetShaderLocation(Shader shader, const char *uniformName);              // Get shader uniform location
-RLAPI void SetShaderValue(Shader shader, int uniformLoc, const float *value, int size); // Set shader uniform value (float)
-RLAPI void SetShaderValuei(Shader shader, int uniformLoc, const int *value, int size);  // Set shader uniform value (int)
+RLAPI void SetShaderValue(Shader shader, int uniformLoc, float *value, int size); // Set shader uniform value (float)
+RLAPI void SetShaderValuei(Shader shader, int uniformLoc, int *value, int size);  // Set shader uniform value (int)
 RLAPI void SetShaderValueMatrix(Shader shader, int uniformLoc, Matrix mat);       // Set shader uniform value (matrix 4x4)
 RLAPI void SetMatrixProjection(Matrix proj);                              // Set a custom projection matrix (replaces internal projection matrix)
 RLAPI void SetMatrixModelview(Matrix view);                               // Set a custom modelview matrix (replaces internal modelview matrix)
@@ -1073,15 +1118,14 @@ RLAPI void BeginBlendMode(int mode);                                      // Beg
 RLAPI void EndBlendMode(void);                                            // End blending mode (reset to default: alpha blending)
 
 // VR control functions
-RLAPI VrDeviceInfo GetVrDeviceInfo(int vrDeviceType);   // Get VR device information for some standard devices
-RLAPI void InitVrSimulator(VrDeviceInfo info);          // Init VR simulator for selected device parameters
-RLAPI void CloseVrSimulator(void);                      // Close VR simulator for current device
-RLAPI bool IsVrSimulatorReady(void);                    // Detect if VR simulator is ready
-RLAPI void SetVrDistortionShader(Shader shader);        // Set VR distortion shader for stereoscopic rendering
-RLAPI void UpdateVrTracking(Camera *camera);            // Update VR tracking (position and orientation) and camera
-RLAPI void ToggleVrMode(void);                          // Enable/Disable VR experience
-RLAPI void BeginVrDrawing(void);                        // Begin VR simulator stereo rendering
-RLAPI void EndVrDrawing(void);                          // End VR simulator stereo rendering
+VrDeviceInfo GetVrDeviceInfo(int vrDeviceType);     // Get VR device information for some standard devices
+void InitVrSimulator(VrDeviceInfo info);            // Init VR simulator for selected device parameters
+RLAPI void CloseVrSimulator(void);                  // Close VR simulator for current device
+RLAPI bool IsVrSimulatorReady(void);                // Detect if VR simulator is ready
+RLAPI void UpdateVrTracking(Camera *camera);        // Update VR tracking (position and orientation) and camera
+RLAPI void ToggleVrMode(void);                      // Enable/Disable VR experience
+RLAPI void BeginVrDrawing(void);                    // Begin VR simulator stereo rendering
+RLAPI void EndVrDrawing(void);                      // End VR simulator stereo rendering
 
 //------------------------------------------------------------------------------------
 // Audio Loading and Playing Functions (Module: audio)

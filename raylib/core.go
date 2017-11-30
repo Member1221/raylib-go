@@ -449,6 +449,33 @@ type Asset interface {
 	io.Closer
 }
 
+type WindowSizeInfo struct {
+	Position   Vector2
+	WindowSize Vector2
+	CanvasSize Vector2
+}
+
+func (b *WindowSizeInfo) cptr() *C.WindowSizeInfo {
+	return (*C.WindowSizeInfo)(unsafe.Pointer(b))
+}
+
+type WindowInfo struct {
+	Title        string
+	IsMinimized  bool
+	IsFullscreen bool
+	IsResizable  bool
+	Size         WindowSizeInfo
+}
+
+func (b *WindowInfo) cptr() *C.rlWindowInfo {
+	return (*C.rlWindowInfo)(unsafe.Pointer(b))
+}
+
+// UpdateWindow - Reloads the window with new settings set. (window resizablity, etc.)
+func UpdateWindow() {
+	C.UpdateWindow()
+}
+
 // CloseWindow - Close Window and Terminate Context
 func CloseWindow() {
 	C.CloseWindow()
@@ -471,6 +498,16 @@ func IsWindowMinimized() bool {
 // ToggleFullscreen - Fullscreen toggle (only PLATFORM_DESKTOP)
 func ToggleFullscreen() {
 	C.ToggleFullscreen()
+}
+
+// SetWindowResizable - Sets the resizability state.
+func SetWindowResizable(state bool) {
+	C.SetWindowResizable(state)
+}
+
+// GetGameWindowInfo - Gets the info about the window.
+func GetGameWindowInfo() WindowInfo {
+	return C.GetGameWindowInfo()
 }
 
 // SetWindowIcon - Set icon for window (only PLATFORM_DESKTOP)
@@ -509,6 +546,20 @@ func GetScreenWidth() int32 {
 // GetScreenHeight - Get current screen height
 func GetScreenHeight() int32 {
 	ret := C.GetScreenHeight()
+	v := (int32)(ret)
+	return v
+}
+
+// GetSurfaceWidth - Get current screen width
+func GetSurfaceWidth() int32 {
+	ret := C.GetSurfaceWidth()
+	v := (int32)(ret)
+	return v
+}
+
+// GetSurfaceHeight - Get current screen height
+func GetSurfaceHeight() int32 {
+	ret := C.GetSurfaceHeight()
 	v := (int32)(ret)
 	return v
 }
