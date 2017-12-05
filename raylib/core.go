@@ -480,8 +480,10 @@ func (b *WindowInfo) cptr() *C.rlWindowInfo {
 }
 
 // UpdateWindow - Reloads the window with new settings set. (window resizablity, etc.)
-func UpdateWindow() {
-	C.UpdateWindow()
+func UpdateWindow(title string) {
+	t := C.CString(title)
+	defer C.free(unsafe.Pointer(t))
+	C.UpdateWindow(t)
 }
 
 // CloseWindow - Close Window and Terminate Context
@@ -740,6 +742,15 @@ func GetRandomValue(min, max int32) int32 {
 	ret := C.GetRandomValue(cmin, cmax)
 	v := (int32)(ret)
 	return v
+}
+
+func SetLogging(level int) {
+	C.SetLogging(C.int(level))
+}
+
+func GetLogging() int {
+	v := C.GetLogging()
+	return int(v)
 }
 
 // Fade - Color fade-in or fade-out, alpha goes from 0.0f to 1.0f

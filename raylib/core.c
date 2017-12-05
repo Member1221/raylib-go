@@ -322,6 +322,8 @@ static char **dropFilesPath;                // Store dropped files paths as stri
 static int dropFilesCount = 0;              // Count stored strings
 #endif
 
+static int log_enabled = true;
+
 static double currentTime, previousTime;    // Used to track timmings
 static double updateTime, drawTime;         // Time measures for update and draw
 static double frameTime = 0.0;              // Time measure for one frame
@@ -596,11 +598,11 @@ void CloseWindow(void)
     TraceLog(LOG_INFO, "Window closed successfully");
 }
 
-void UpdateWindow(void)
+void UpdateWindow(const char* title)
 {
     CloseWindow();
     TraceLog(LOG_INFO, "Relaunching window...");
-    InitWindow(screenWidth, screenHeight, windowTitle);
+    InitWindow(screenWidth, screenHeight, title);
 }
 
 // Check if KEY_ESCAPE pressed or Close icon pressed
@@ -1140,6 +1142,14 @@ Color GetColor(int hexValue)
 int GetHexValue(Color color)
 {
     return (((int)color.r << 24) | ((int)color.g << 16) | ((int)color.b << 8) | (int)color.a);
+}
+
+void SetLogging(int level) {
+	log_enabled = level;
+}
+
+int GetLogging() {
+	return log_enabled;
 }
 
 // Returns a random value between min and max (both included)

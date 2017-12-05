@@ -733,7 +733,7 @@ RLAPI void InitWindow(int width, int height, void *state);                      
 #elif defined(PLATFORM_DESKTOP) || defined(PLATFORM_RPI) || defined(PLATFORM_WEB)
 RLAPI void InitWindow(int width, int height, const char *title);   // Initialize window and OpenGL context
 #endif
-RLAPI void UpdateWindow(void);                                    // Relaunches window with updates
+RLAPI void UpdateWindow(const char* title);                       // Relaunches window with updates
 RLAPI void CloseWindow(void);                                     // Close window and unload OpenGL context
 RLAPI bool WindowShouldClose(void);                               // Check if KEY_ESCAPE pressed or Close icon pressed
 RLAPI bool IsWindowMinimized(void);                               // Check if window has been minimized (or lost focus)
@@ -800,7 +800,8 @@ RLAPI void SetConfigFlags(char flags);                            // Setup windo
 RLAPI void TraceLog(int logType, const char *text, ...);          // Show trace log messages (LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_DEBUG)
 RLAPI void TakeScreenshot(const char *fileName);                  // Takes a screenshot of current screen (saved a .png)
 RLAPI int GetRandomValue(int min, int max);                       // Returns a random value between min and max (both included)
-
+RLAPI void SetLogging(int loglevel);
+RLAPI int GetLogging();
 // Files management functions
 RLAPI bool IsFileExtension(const char *fileName, const char *ext);// Check file extension
 RLAPI const char *GetExtension(const char *fileName);             // Get file extension

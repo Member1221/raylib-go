@@ -93,6 +93,8 @@ static int android_close(void *cookie);
 // Show trace log messages (LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_DEBUG)
 void TraceLog(int msgType, const char *text, ...)
 {
+	if (GetLogging() == 0) return;
+	
 #if defined(SUPPORT_TRACELOG)
     static char buffer[128];
     int traceDebugMsgs = 0;
